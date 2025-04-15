@@ -1,0 +1,50 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Painel de Agendamentos</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 40px; text-align: center; }
+    .container { background: white; padding: 30px; border-radius: 10px; max-width: 400px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; }
+    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    h2 { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Login no Painel</h2>
+  <input type="email" id="email" placeholder="Seu e-mail">
+  <input type="password" id="senha" placeholder="Sua senha">
+  <button onclick="login()">Entrar</button>
+  <p id="mensagem" style="color: red;"></p>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAhUnNNBcWVdITuZtamoJ_qugu5lxyGXno",
+    authDomain: "painel-9933b.firebaseapp.com",
+    projectId: "painel-9933b",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+
+  function login() {
+    const email = document.getElementById("email").value;
+    const senha = document.getElementById("senha").value;
+    firebase.auth().signInWithEmailAndPassword(email, senha)
+      .then(() => {
+        window.location.href = "painel.html"; // redireciona para o painel após login
+      })
+      .catch(error => {
+        document.getElementById("mensagem").innerText = "Erro: " + error.message;
+      });
+  }
+</script>
+
+</body>
+</html>

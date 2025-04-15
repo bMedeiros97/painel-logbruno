@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Painel - Agendamentos</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background-color: #f0f0f0; }
+    input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; }
+    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; }
+    .add-btn { background-color: #28a745; color: white; }
+    .send-btn { background-color: #007bff; color: white; }
+    .concluir-btn { background-color: #17a2b8; color: white; }
+    .voltar-btn { background-color: #ffc107; color: black; }
+    .excluir-btn { background-color: #dc3545; color: white; }
+    .agendamento { background: white; padding: 10px; margin: 10px 0; border-left: 5px solid #ccc; border-radius: 5px; }
+    .pendente { border-left-color: #ffc107; }
+    .enviado { border-left-color: #007bff; }
+    .concluido { border-left-color: #28a745; }
+    .logout { float: right; }
+  </style>
+</head>
+<body>
+
+<h2>Painel de Agendamentos <button class="logout" onclick="logout()">Sair</button></h2>
+
+<input type="text" id="cliente" placeholder="Nome do Cliente" />
+<input type="text" id="endereco" placeholder="Endereço" />
+<select id="tipo">
+  <option value="Entrega">Entrega</option>
+  <option value="Coleta">Coleta</option>
+  <option value="Troca">Troca</option>
+</select>
+<input type="datetime-local" id="datahora" />
+<textarea id="obs" placeholder="Observações"></textarea>
+<input type="text" id="motorista" placeholder="Motorista (ex: jose)" />
+<button class="add-btn" onclick="adicionarAgendamento()">Adicionar</button>
+
+<hr />
+
+<h3>Pendentes</h3>
+<div id="pendentes"></div>
+
+<h3>Enviados</h3>
+<div id="enviados"></div>
+
+<h3>Concluídos</h3>
+<div id="concluidos"></div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAhUnNNBcWVdITuZtamoJ_qugu5lxyGXno",
+    authDomain: "painel-9933b.firebaseapp.com",
+    databaseURL: "https://painel-9933b-default-rtdb.firebaseio.com",
+    projectId: "painel-9933b",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+
+  firebase.auth().onAuthStateChanged(user => {
+    if (!user) {
+      window.location.href = "index.html";
+    } else {
+      carregarAgendamentos();
+    }
+  });
+
+  const db = firebase.database();
+
+  function logout() {
+    firebase.auth().signOut().then(() => {
+      window.location.href = "index.html";
+    });
+  }
+
+  function adicionarAgendamento() {
+    const ag = {
+      cliente: document.getElementById("cliente").value,
+      endereco: document.getElementById("endereco").value,
+      tipo: document.getElementById("tipo").value,
+      datahora: document.getElementById("datahora").value,
+      obs: document.getElementById("obs").value,
+      motorista: document.getElementById("motorista").value.toLowerCase(),
+      status: "pendente"
+    };
+
+    db.ref("agendamentos").push(ag)
+      .then(() => {
+        alert("✅ Agendamento salvo!");
+        document.getElementById("cliente").value = "";
+        document.getElementById("endereco").value = "";
+        document.getElementById("datahora").value = "";
+        document.getElementById("obs").value = "";
+        document.getElementById("motorista").value = "";
+      })
+      .catch((error) => {
+        alert("❌ Erro ao salvar: " + error.message);
+      });
+  }
+
+  function carregarAgendamentos() {
+    db.ref("agendamentos").on("value", snapshot => {
+      const pend = document.getElementById("pendentes");
+      const envi = document.getElementById("enviados");
+      const conc = document.getElementById("concluidos");
+      pend.innerHTML = envi.innerHTML = conc.innerHTML = "";
+
+      const dados = snapshot.val();
+      for (let id in dados) {
+        const ag = dados[id];
+        const div = document.createElement("div");
+        div.className = `agendamento ${ag.status}`;
+        div.innerHTML = `
+          <b>${ag.tipo}</b> para <b>${ag.cliente}</b><br />
+          ${ag.endereco}<br />
+          ${new Date(ag.datahora).toLocaleString("pt-BR")}<br />
+          <i>${ag.obs}</i><br />
+          Motorista: ${ag.motorista}<br />
+          ${ag.status !== 'concluido' ? `<button class="concluir-btn" onclick="mudarStatus('${id}', 'concluido')">Concluir</button>` : ''}
+          ${ag.status === 'enviado' ? `<button class="voltar-btn" onclick="mudarStatus('${id}', 'pendente')">Voltar</button>` : ''}
+          ${ag.status === 'pendente' ? `<button class="send-btn" onclick="enviarWhatsapp('${id}')">Enviar WhatsApp</button>` : ''}
+          <button class="excluir-btn" onclick="excluirAgendamento('${id}')">Excluir</button>
+        `;
+        if (ag.status === "pendente") pend.appendChild(div);
+        if (ag.status === "enviado") envi.appendChild(div);
+        if (ag.status === "concluido") conc.appendChild(div);
+      }
+    });
+  }
+
+  function mudarStatus(id, novoStatus) {
+    db.ref("agendamentos/" + id).update({ status: novoStatus });
+  }
+
+  function excluirAgendamento(id) {
+    if (confirm("Excluir agendamento?")) {
+      db.ref("agendamentos/" + id).remove();
+    }
+  }
+
+  function enviarWhatsapp(id) {
+    db.ref("agendamentos/" + id).once("value").then(snapshot => {
+      const ag = snapshot.val();
+      const msg = `Olá ${ag.motorista}, segue o agendamento:
+
+*${ag.tipo}* para *${ag.cliente}*
+${ag.endereco}
+${new Date(ag.datahora).toLocaleString("pt-BR")}
+${ag.obs}`;
+      const link = `https://wa.me/55?text=${encodeURIComponent(msg)}`;
+      window.open(link, "_blank");
+      mudarStatus(id, "enviado");
+    });
+  }
+</script>
+
+</body>
+</html>
